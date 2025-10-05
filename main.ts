@@ -4,6 +4,10 @@ interface LinkContentDictionary {
   [key: string]: string;
 }
 
+function applyColor(text: string, color: string): string {
+	return `<span style="color:${color}">${text}</span>`;
+}
+
 function generateTable(fileName: string, windowsLink: string, macLink: string, mobileLink: string, preview: boolean): string {
 	if (preview) {
 		return `|                                                                                           | File: ${fileName}                                                                                           |            |
@@ -59,7 +63,7 @@ function createContent(path: string, preview: boolean): string {
 	return generateTable(fileName, links.windows, links.mac, links.mobile, preview);
 }
 
-export default class GinnyPlugin extends Plugin {
+export default class HaremPlugin extends Plugin {
 	async onload() {
 		/* The command below will insert the links to each of the NAS files by OS
 		 * The supported OS options:
@@ -74,6 +78,23 @@ export default class GinnyPlugin extends Plugin {
 				new NASLinksModal(this.app, (result, preview) => {
 					const content = createContent(result, preview);
 					editor.replaceRange(content, editor.getCursor());
+				}).open();
+
+				return true;
+			}
+		})
+
+		/* The command below will modify the text selected to be styled with a color.
+		 * This will directly impact text, not interacting with CSS.
+		 */
+		this.addCommand({
+			id: 'colorize-text',
+			name: 'Apply Color to Text',
+			editorCallback: (editor: Editor, _view: MarkdownView) => {
+				new ColorModal(this.app, (result) => {
+					const selection = editor.getSelection();
+					const content = applyColor(selection, result);
+					editor.replaceSelection(content);
 				}).open();
 
 				return true;
@@ -94,27 +115,27 @@ export default class GinnyPlugin extends Plugin {
 
 export class NASLinksModal extends Modal {
 	onSubmit: (result: string, preview: boolean) => void;
+	path = '';
+	preview = false;
 
 	constructor(app: App, onSubmit: (result: string, preview: boolean) => void) {
 		super(app);
 		this.onSubmit = onSubmit;
 		this.setTitle('Input File Path');
-
-		let path = '';
+		
 		new Setting(this.contentEl)
 			.setName('Path')
 			.addText((text) =>
 				text.onChange((value) => {
-					path = value;
+					this.path = value;
 				}));
 
-		let preview = false;
 		new Setting(this.contentEl)
                 .setName('Enable Preview')
                 .addToggle(toggle => toggle
                     .setValue(false) // Initial state of the checkbox
                     .onChange((value) => {
-                        preview = value;
+                        this.preview = value;
                     }));
 
 		new Setting(this.contentEl)
@@ -124,7 +145,92 @@ export class NASLinksModal extends Modal {
 					.setCta()
 					.onClick(() => {
 						this.close();
-						this.onSubmit(path, preview);
+						this.onSubmit(this.path, this.preview);
 					}));
+	}
+
+	onOpen() {
+		super.onOpen();
+		
+		// Add Enter key listener
+		this.contentEl.addEventListener('keydown', (event) => {
+			if (event.key === 'Enter') {
+				event.preventDefault();
+				this.submit();
+			}
+		});
+	}
+
+	submit() {
+		this.close();
+		this.onSubmit(this.path, this.preview);
+	}
+}
+
+export class ColorModal extends Modal { 
+	onSubmit: (result: string) => void; 
+	color = '#fff';
+ 
+	constructor(app: App, onSubmit: (result: string) => void) { 
+		super(app); 
+		this.onSubmit = onSubmit; 
+		this.setTitle('Select Color'); 
+		
+		// Create a container for the color picker
+		const colorPickerContainer = this.contentEl.createDiv();
+		colorPickerContainer.style.marginBottom = '20px';
+		
+		// Create label
+		const label = colorPickerContainer.createEl('label');
+		label.textContent = 'Color: ';
+		label.style.marginRight = '10px';
+		
+		// Create color picker input
+		const colorInput = colorPickerContainer.createEl('input');
+		colorInput.type = 'color';
+		colorInput.value = this.color;
+		colorInput.style.width = '60px';
+		colorInput.style.height = '30px';
+		colorInput.style.cursor = 'pointer';
+		
+		// Update color when changed
+		colorInput.addEventListener('input', (e) => {
+			this.color = (e.target as HTMLInputElement).value;
+		});
+		
+		// Add Enter key listener to color input
+		colorInput.addEventListener('keydown', (event) => {
+			if (event.key === 'Enter') {
+				event.preventDefault();
+				this.submit();
+			}
+		});
+		
+		// Add submit button
+		new Setting(this.contentEl) 
+			.addButton((btn) => 
+				btn 
+					.setButtonText('Submit') 
+					.setCta() 
+					.onClick(() => { 
+						this.submit();
+					})); 
+	}
+
+	onOpen() {
+		super.onOpen();
+		
+		// Add Enter key listener for the entire modal
+		this.contentEl.addEventListener('keydown', (event) => {
+			if (event.key === 'Enter') {
+				event.preventDefault();
+				this.submit();
+			}
+		});
+	}
+
+	submit() {
+		this.close();
+		this.onSubmit(this.color);
 	}
 }
