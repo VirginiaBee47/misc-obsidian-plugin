@@ -193,7 +193,7 @@ export class ColorModal extends Modal {
 		colorInput.style.height = '30px';
 		colorInput.style.cursor = 'pointer';
 		
-		// Update color when changed
+		// Update color when changed in picker
 		colorInput.addEventListener('input', (e) => {
 			this.color = (e.target as HTMLInputElement).value;
 		});
@@ -206,6 +206,30 @@ export class ColorModal extends Modal {
 			}
 		});
 		
+		// Create the dropdown for html named colors
+		const dropdownContainer = this.contentEl.createDiv();
+		dropdownContainer.style.marginBottom = '20px';
+		
+		// Create a dropdown label
+		const dropdownLabel = dropdownContainer.createEl('label');
+		dropdownLabel.textContent = 'Or select a named color: ';
+		dropdownLabel.style.marginRight = '10px';
+
+		// create the dropdown
+		const colorDropdown = dropdownContainer.createEl('select');
+		const colors = ['red', 'blue', 'green', 'yellow', 'purple', 'orange', 'black', 'white', 'gray', 'pink', 'brown', 'cyan', 'magenta', 'lime', 'teal', 'navy'];
+		colors.forEach((color) => {
+			const option = colorDropdown.createEl('option');
+			option.value = color;
+			option.textContent = color.charAt(0).toUpperCase() + color.slice(1);
+		});
+		
+		// Update color when changed in dropdown
+		colorDropdown.addEventListener('change', (e) => {
+			this.color = (e.target as HTMLSelectElement).value;
+			colorInput.value = this.color; // Sync color picker with dropdown
+		});
+
 		// Add submit button
 		new Setting(this.contentEl) 
 			.addButton((btn) => 
